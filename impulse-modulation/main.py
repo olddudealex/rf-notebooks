@@ -33,26 +33,76 @@ def find_peaks(data, number, span):
     return peaks_indexes
 
 
-def mark_peaks(x, y, peaks_indexes, ax):
-    for i in range(len(peaks_indexes)):
-        xmax = x[peaks_indexes[i]]
-        ymax = y[peaks_indexes[i]]
-        ax.annotate(f"{xmax / 1_000_000:.2f}MHz",
-                    xy=(xmax, ymax))
+def convert_fft_to_zero_symmetrical(fft_raw):
+    m = fft_raw.size // 2
+    data = np.concatenate([fft_raw[m+1:], fft_raw[0:m]])
+    return data
+
+
+def find_band(data, peak_index, level=0.7):
+    max_val = data[peak_index]
+    thrsd = level * max_val
+
+    l = peak_index - 1
+    while data[l] > thrsd:
+        l = l - 1
+
+    r = peak_index + 1
+    while data[r] > thrsd:
+        r = r + 1
+
+    return [l, r]
+
+
+def mark_points(x, y, points_indexes, ax):
+    for i in range(len(points_indexes)):
+        x_point = x[points_indexes[i]]
+        y_point = y[points_indexes[i]]
+        ax.annotate(f"{x_point / 1_000_000:.2f}MHz",
+                    xy=(x_point, y_point))
+
+
+def mark_band(x, y, edges, ax):
+    x_l = x[edges[0]]
+    y_l = y[edges[0]]
+    ax.annotate(f"{x_l / 1_000_000:.2f}MHz",
+                xy=(x_l, y_l),
+                xytext=(-70, 10), textcoords='offset points',
+                arrowprops=dict(arrowstyle="->"))
+    x_r = x[edges[1]]
+    y_r = y[edges[1]]
+    ax.annotate(f"{x_r / 1_000_000:.2f}MHz",
+                xy=(x_r, y_r),
+                xytext=(20, 10), textcoords='offset points',
+                arrowprops=dict(arrowstyle="->"))
+    ax.annotate(f"dF={(x_r-x_l) / 1_000_000:.2f}MHz",
+                xy=(x_r, y_r),
+                xytext=(20, -10), textcoords='offset points')
 
 
 def plot_with_spectre(data, fs, plot_name):
     fig, axs = plt.subplots(2, figsize=(10, 6), num=plot_name)
     fig.suptitle(plot_name)
-    spectrum = np.fft.fft(data)
+    spectrum = convert_fft_to_zero_symmetrical(np.fft.fft(data))
     t = np.linspace(0, data.size/fs, data.size)
-    f = np.fft.fftfreq(data.size, 1/fs)
+    f = convert_fft_to_zero_symmetrical(np.fft.fftfreq(data.size, 1/fs))
     sp_abs = np.abs(spectrum)
     axs[0].plot(t, data)
     axs[1].plot(f, sp_abs)
     axs[1].set_xlim(-10 * 10 ** 9, 10 * 10 ** 9)
-    freq_peaks = find_peaks(sp_abs, 3, SPAN)
-    mark_peaks(f, sp_abs, freq_peaks, axs[1])
+    freq_peaks = find_peaks(sp_abs, 5, SPAN)
+
+    for peak in freq_peaks:
+        # mark all bands that have max amplitude at least 0.5 of main peak
+        if sp_abs[peak] / sp_abs[freq_peaks[0]] > 0.5:
+            mark_points(f, sp_abs, [peak], axs[1])
+            band_edges = find_band(sp_abs, peak, 0.7)
+            mark_band(f, sp_abs, band_edges, axs[1])
+
+            # band_edges_2 = find_band(sp_abs[sp_abs.size // 2 + 1:], 0.7)
+            # for i in range(len(band_edges_2)):
+            #     band_edges_2[i] += sp_abs.size // 2 + 1
+            # mark_band(f, sp_abs, band_edges_2, axs[1])
 
 
 def butter_lowpass_filter(data, fs, cutoff, order):
@@ -70,8 +120,8 @@ delta_f = 100 * (10**6)         # max - min freq diff 100MHz
 tu = 1*10**(-12)                # time units (time resolution) 1ps
 fs = 1/tu                       # sampling freq of simulation
 
-L_sec = 100 * (10**(-9))         # length of impulse   10ns
-s_sec = 0 * (10**(-9))         # start of impulse    10ns
+L_sec = 10 * (10**(-9))         # length of impulse   10ns
+s_sec = 10 * (10**(-9))         # start of impulse    10ns
 sim_dur = 100 * (10**(-9))      # simulation duration 100ns
 N = sim_dur / tu                # amount of samples
 f_res = fs / N                  # FFT bin size
