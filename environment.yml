@@ -11,4 +11,5 @@ dependencies:
   - jupyter_client[version='<8']
   - notebook
   - pyzmq[version='<25']
+  - conda-forge::python-kaleido=0.1
 prefix: c:\Users\lexol\jupiter-notebooks\radar-research\.conda
