@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import filtfilt, butter
+import copy
 
 
 SPAN = 20
@@ -117,7 +118,7 @@ class PlotData:
 
         self.time_domain = data
         self.time_domain_x = np.linspace(0, data.size / fs, data.size)
-
+        
         spectrum = convert_fft_to_zero_symmetrical(np.fft.fft(data))
         self.freq_domain = np.abs(spectrum)
         self.freq_domain_x = convert_fft_to_zero_symmetrical(np.fft.fftfreq(data.size, 1 / fs))
@@ -155,6 +156,19 @@ class PlotData:
         self.update_freq_peaks()
         self.update_freq_bands()
         return [s, e]
+    
+    def get_trim_freq_copy(self, freq_start, freq_end):
+        trimmed_data = copy.deepcopy(self)
+        trimmed_data.trim_freq(freq_start, freq_end)
+        return trimmed_data
+    
+    def separate_by_freq_points(self, freq_points):
+        if len(freq_points) < 2:
+            raise Exception("The freq_points should have at least 2 elements")
+        separated_data = []
+        for i in range(len(freq_points) - 1):
+            separated_data.append(self.get_trim_freq_copy(freq_points[i], freq_points[i+1]))
+        return separated_data
 
 
 def mark_point_plotly(figure, x, y, text, **kwargs):
