@@ -18,6 +18,7 @@ copy "%~1" "%~2"
 
 REM Use PowerShell to modify the copied file's content
 powershell -Command "(Get-Content -Raw -Path '%~2') -replace 'static_rendering = False', 'static_rendering = True' | Set-Content -Path '%~2%'"
+powershell -Command "(Get-Content -Raw -Path '%~2') -replace 'title_text=', 'width=1200, title_text=' | Set-Content -Path '%~2%'"
 
 echo The file "%~2" has been created with the changes applied.
 
